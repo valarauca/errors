@@ -1,0 +1,14 @@
+[package]
+name = "errors"
+version = "1.0.0"
+authors = ["cody laeder <codylaeder@gmail.com>"]
+license = "MIT/Apache2"
+description = "non-error handling"
+repository = "https://github.com/valarauca/errors"
+documentation = "https://valarauca/github.io/errors/errors/index.html"
+readme = "README.md"
+keywords = ["error", "error_handling", "debugging"]
+exclude = [
+	".gitignore",
+]
+
