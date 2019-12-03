@@ -1,6 +1,7 @@
 use std::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
 use std::collections::HashMap;
 use std::fmt;
+use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
@@ -162,6 +163,20 @@ macro_rules! from_primative_to_basic {
             }
         }
     };
+    (@NOCLONE $from_name: ty; $variant: ident) => {
+        impl From<$from_name> for Wrapper<$from_name> {
+            #[inline(always)]
+            fn from(arg: $from_name) -> Self {
+                Self(arg)
+            }
+        }
+        impl From<Wrapper<$from_name>> for BasicType {
+            #[inline(always)]
+            fn from(arg: Wrapper<$from_name>) -> Self {
+                Self::$variant(Arc::new(arg.0))
+            }
+        }
+    };
     ($from_name: ty; $variant: ident) => {
         impl From<$from_name> for Wrapper<$from_name> {
             #[inline(always)]
@@ -209,6 +224,7 @@ pub enum BasicType {
     Inst(Instant),
     SysTime(SystemTime),
     Debug(&'static str, Arc<dyn fmt::Debug>),
+    IOError(Arc<io::Error>),
 }
 impl Serialize for BasicType {
     fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -239,6 +255,7 @@ impl Serialize for BasicType {
                     .unwrap_or_else(|_| Duration::new(0, 0))
             )),
             Self::Debug(ref kind, ref debug) => s.serialize_str(&format!("{}='{:?}'", kind, debug)),
+            Self::IOError(ref err) => s.collect_str(err),
         }
     }
 }
@@ -260,6 +277,7 @@ from_primative_to_basic!(SocketAddr;Socket);
 from_primative_to_basic!(Duration;Dur);
 from_primative_to_basic!(Instant;Inst);
 from_primative_to_basic!(SystemTime;SysTime);
+from_primative_to_basic!(@NOCLONE io::Error;IOError);
 from_primative_to_basic!(&'static str; StaticStr);
 from_primative_to_basic!(@WRAPPER Ipv4Addr; IpAddr::V4; IP);
 from_primative_to_basic!(@WRAPPER Ipv6Addr; IpAddr::V6; IP);
