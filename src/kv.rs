@@ -30,12 +30,6 @@ impl KeyValue {
         Wrapper<B>: From<A>,
         BasicType: From<Wrapper<B>>,
     {
-        match self.data.get(key) {
-            Option::Some(ref value) => {
-                panic!("Err: cannot insert key:'{}' into error map. key already exists with value:'{:?}'", key, value);
-            }
-            Option::None => {}
-        };
         self.data
             .insert(key, BasicType::from(Wrapper::<B>::from(arg)));
     }
