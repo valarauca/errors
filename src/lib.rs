@@ -12,6 +12,8 @@ use self::frame::{build_backtrace, Frames};
 mod kv;
 use self::kv::KeyValue;
 pub use self::kv::{BasicType, Wrapper};
+mod debugdisplay;
+pub use self::debugdisplay::{Message, MessageWrapper};
 
 /// Err is a heavy, but complete custom error type system.
 ///
@@ -20,6 +22,7 @@ pub use self::kv::{BasicType, Wrapper};
 #[derive(Clone)]
 pub struct Err {
     backtrace: Frames,
+    message: String,
     root_cause: Option<Box<Err>>,
     key_value: KeyValue,
 }
@@ -27,6 +30,7 @@ impl Serialize for Err {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let mut s = serializer.serialize_struct("Error", self.count_fields())?;
         s.serialize_field("stack", &self.backtrace)?;
+        s.serialize_field("message", &self.message)?;
         if let Option::Some(ref root_cause) = &self.root_cause {
             s.serialize_field("existing_error", root_cause)?;
         }
@@ -66,6 +70,7 @@ impl fmt::Debug for Err {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut info = f.debug_struct("Error");
         info.field("stack", &self.backtrace);
+        info.field("message", &self.message);
         if let Option::Some(ref root_cause) = &self.root_cause {
             info.field("existing_error", root_cause);
         }
@@ -81,15 +86,36 @@ impl Default for Err {
         Err::new_with_skip(2)
     }
 }
-impl<'a> From<&'a Err> for Err {
-    #[inline(never)]
-    fn from(err: &'a Err) -> Err {
-        let mut e = Err::new_with_skip(3);
-        e.root_cause = Some(Box::new(err.clone()));
+impl Err {
+    /// new creates a new error value.
+    ///
+    /// The `message` argument maybe a little confusing in truth it
+    /// accepts _many_ types. The full list can be found on
+    /// `MessageWrapper<B>`'s page. As what ever it be created from
+    /// is a type that a string can be created from
+    #[inline(always)]
+    pub fn new<A, B>(message: A) -> Self
+    where
+        MessageWrapper<B>: From<A>,
+        Message: From<MessageWrapper<B>>,
+    {
+        let mut e = Err::default();
+        e.message = Message::from(MessageWrapper::from(message)).into();
         e
     }
-}
-impl Err {
+
+    /// new with error creates an error with a root cause
+    #[inline(always)]
+    pub fn new_with_error<A, B>(err: Err, message: A) -> Self
+    where
+        MessageWrapper<B>: From<A>,
+        Message: From<MessageWrapper<B>>,
+    {
+        let mut e = Err::new(message);
+        e.root_cause = Some(Box::new(err));
+        e
+    }
+
     /// appends a note to an error.
     #[inline(always)]
     pub fn note<A, B>(self, key: &'static str, value: A) -> Self
@@ -119,6 +145,7 @@ impl Err {
         let key_value = KeyValue::default();
         let backtrace = build_backtrace(skip, 1000);
         Err {
+            message: String::with_capacity(0),
             backtrace,
             root_cause,
             key_value,
@@ -126,7 +153,7 @@ impl Err {
     }
 
     fn count_fields(&self) -> usize {
-        let mut fields = 1usize;
+        let mut fields = 2usize;
         if self.key_value.len() > 0 {
             fields += 1;
         }

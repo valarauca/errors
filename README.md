@@ -13,6 +13,10 @@ A relatively complex crate that does a massive amount of error handling behind y
 errors = { git = "https://github.com/valarauca/errors" }
 ```
 
+## How do I understand it?
+
+Docs Link => [linky](https://valarauca.github.io/errors/errors/index.html)
+
 ## Back Trace Info
 
 Requires a backtrace library, and you'll want ot ensure you build your programs with
