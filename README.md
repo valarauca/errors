@@ -15,7 +15,7 @@ errors = { git = "https://github.com/valarauca/errors" }
 
 ## How do I understand it?
 
-Docs Link => [linky](https://valarauca.github.io/errors/errors/index.html)
+[Docs Link]](https://valarauca.github.io/errors/)
 
 ## Back Trace Info
 
