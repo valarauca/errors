@@ -70,12 +70,11 @@ impl Default for Err {
 }
 impl Err {
     /// error can work with most error/message formats
-    pub fn err<A, B, C, D>(&self, err: A, message: C) -> Self
+    pub fn err<A, B, C>(&self, err: A, message: C) -> Self
     where
         Wrapper<B>: From<A>,
         BasicType: From<Wrapper<B>>,
-        MessageWrapper<D>: From<C>,
-        Message: From<MessageWrapper<D>>,
+        MessageWrapper<Box<str>>: From<C>,
     {
         let mut e = Err::default();
         e.message = Message::from(MessageWrapper::from(message)).0;
