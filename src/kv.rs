@@ -130,10 +130,28 @@ impl<'a, D: fmt::Debug + Clone + 'static> From<&'a D>
         Wrapper((::std::any::type_name::<D>(), Arc::new(arg.clone())))
     }
 }
+impl From<fmt::Arguments<'_>> for Wrapper<Arc<str>> {
+    #[inline(always)]
+    fn from(arg: fmt::Arguments<'_>) -> Self {
+        Wrapper::from(format!("{:?}", arg))
+    }
+}
 impl From<Wrapper<(&'static str, Arc<dyn fmt::Debug>)>> for BasicType {
     #[inline(always)]
     fn from(arg: Wrapper<(&'static str, Arc<dyn fmt::Debug>)>) -> Self {
         Self::Debug((arg.0).0, (arg.0).1)
+    }
+}
+impl From<String> for Wrapper<Arc<str>> {
+    #[inline(always)]
+    fn from(arg: String) -> Self {
+        Wrapper(Arc::from(arg.into_boxed_str()))
+    }
+}
+impl From<Wrapper<Arc<str>>> for BasicType {
+    #[inline(always)]
+    fn from(arg: Wrapper<Arc<str>>) -> BasicType {
+        BasicType::String(arg.0)
     }
 }
 macro_rules! from_primative_to_basic {
@@ -196,7 +214,7 @@ macro_rules! from_primative_to_basic {
 /// BasicType is used as a "relatively" efficient way to store
 /// multiple primative types without having to preform extra
 /// allocations.
-#[derive(fmt::Debug, Clone)]
+#[derive(Clone)]
 pub enum BasicType {
     Bool(bool),
     I8(i8),
@@ -217,8 +235,44 @@ pub enum BasicType {
     Dur(Duration),
     Inst(Instant),
     SysTime(SystemTime),
+    String(Arc<str>),
     Debug(&'static str, Arc<dyn fmt::Debug>),
     IOError(Arc<io::Error>),
+}
+impl fmt::Debug for BasicType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Bool(ref item) => write!(f, "{:?}", item),
+            Self::I8(ref item) => write!(f, "{:?}", item),
+            Self::I16(ref item) => write!(f, "{:?}", item),
+            Self::I32(ref item) => write!(f, "{:?}", item),
+            Self::I64(ref item) => write!(f, "{:?}", item),
+            Self::I128(ref item) => write!(f, "{:?}", item),
+            Self::U8(ref item) => write!(f, "{:?}", item),
+            Self::U16(ref item) => write!(f, "{:?}", item),
+            Self::U32(ref item) => write!(f, "{:?}", item),
+            Self::U64(ref item) => write!(f, "{:?}", item),
+            Self::U128(ref item) => write!(f, "{:?}", item),
+            Self::F32(ref item) => write!(f, "{:?}", item),
+            Self::F64(ref item) => write!(f, "{:?}", item),
+            Self::StaticStr(ref item) => write!(f, "{:?}", item),
+            Self::String(ref item) => write!(f, "{:?}", item),
+            Self::IP(IpAddr::V4(ref ip)) => write!(f, "{:?}", ip),
+            Self::IP(IpAddr::V6(ref ip)) => write!(f, "{:?}", ip),
+            Self::Socket(SocketAddr::V4(ref sock)) => write!(f, "{:?}", sock),
+            Self::Socket(SocketAddr::V6(ref sock)) => write!(f, "{:?}", sock),
+            Self::Dur(ref item) => write!(f, "{:?}", item),
+            Self::Inst(ref item) => write!(f, "{:?}", item),
+            Self::SysTime(ref item) => write!(
+                f,
+                "{:?}",
+                item.duration_since(SystemTime::UNIX_EPOCH)
+                    .unwrap_or_else(|_| Duration::new(0, 0))
+            ),
+            Self::Debug(ref kind, ref debug) => write!(f, "{}='{:?}'", kind, debug),
+            Self::IOError(ref err) => write!(f, "{:?}", err),
+        }
+    }
 }
 impl Serialize for BasicType {
     fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -237,6 +291,7 @@ impl Serialize for BasicType {
             Self::F32(ref item) => s.serialize_f32(*item),
             Self::F64(ref item) => s.serialize_f64(*item),
             Self::StaticStr(ref item) => s.serialize_str(item),
+            Self::String(ref item) => s.serialize_str(item),
             Self::IP(IpAddr::V4(ref ip)) => s.collect_str(ip),
             Self::IP(IpAddr::V6(ref ip)) => s.collect_str(ip),
             Self::Socket(SocketAddr::V4(ref sock)) => s.collect_str(sock),

@@ -15,12 +15,6 @@ errors = { git = "https://github.com/valarauca/errors" }
 
 ## How do I understand it?
 
-[Docs Link]](https://valarauca.github.io/errors/)
-
-## Back Trace Info
-
-Requires a backtrace library, and you'll want ot ensure you build your programs with
-`BACKTRACE=1` set to ensure enough debugging information is populated to fill stack
-traces.
+[Docs Link](https://valarauca.github.io/errors/)
 
 

@@ -1,4 +1,3 @@
-extern crate backtrace;
 extern crate serde;
 extern crate serde_json;
 use serde::ser::SerializeStruct;
@@ -7,8 +6,6 @@ use serde::{Serialize, Serializer};
 use std::error;
 use std::fmt;
 
-mod frame;
-use self::frame::{build_backtrace, Frames};
 mod kv;
 use self::kv::KeyValue;
 pub use self::kv::{BasicType, Wrapper};
@@ -21,15 +18,13 @@ pub use self::debugdisplay::{Message, MessageWrapper};
 /// your want, in a relatively sane fashion.
 #[derive(Clone)]
 pub struct Err {
-    backtrace: Frames,
     message: String,
-    root_cause: Option<Box<Err>>,
+    root_cause: Option<BasicType>,
     key_value: KeyValue,
 }
 impl Serialize for Err {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let mut s = serializer.serialize_struct("Error", self.count_fields())?;
-        s.serialize_field("stack", &self.backtrace)?;
         s.serialize_field("message", &self.message)?;
         if let Option::Some(ref root_cause) = &self.root_cause {
             s.serialize_field("existing_error", root_cause)?;
@@ -44,22 +39,6 @@ impl error::Error for Err {
     fn description(&self) -> &str {
         "Description is soft depreciated. Therefore it is not directly supported by this crate"
     }
-    fn source<'a>(&'a self) -> Option<&'a (dyn error::Error + 'static)> {
-        // amusingly this code breaks if you listen to clippy
-        #[allow(clippy::match_ref_pats)]
-        match &self.root_cause {
-            &Option::None => None,
-            &Option::Some(ref err) => Some(err),
-        }
-    }
-    fn cause<'a>(&'a self) -> Option<&'a (dyn error::Error + 'static)> {
-        // amusingly this code breaks if you listen to clippy
-        #[allow(clippy::match_ref_pats)]
-        match &self.root_cause {
-            &Option::None => None,
-            &Option::Some(ref err) => Some(err),
-        }
-    }
 }
 impl fmt::Display for Err {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -69,7 +48,6 @@ impl fmt::Display for Err {
 impl fmt::Debug for Err {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut info = f.debug_struct("Error");
-        info.field("stack", &self.backtrace);
         info.field("message", &self.message);
         if let Option::Some(ref root_cause) = &self.root_cause {
             info.field("existing_error", root_cause);
@@ -83,41 +61,29 @@ impl fmt::Debug for Err {
 impl Default for Err {
     #[inline(always)]
     fn default() -> Err {
-        Err::new_with_skip(2)
+        Err {
+            message: String::new(),
+            root_cause: None,
+            key_value: KeyValue::default(),
+        }
     }
 }
 impl Err {
-    /// new creates a new error value.
-    ///
-    /// The `message` argument maybe a little confusing in truth it
-    /// accepts _many_ types. The full list can be found on
-    /// `MessageWrapper<B>`'s page. As what ever it be created from
-    /// is a type that a string can be created from
-    #[inline(always)]
-    pub fn new<A, B>(message: A) -> Self
+    /// error can work with most error/message formats
+    pub fn err<A, B, C, D>(&self, err: A, message: C) -> Self
     where
-        MessageWrapper<B>: From<A>,
-        Message: From<MessageWrapper<B>>,
+        Wrapper<B>: From<A>,
+        BasicType: From<Wrapper<B>>,
+        MessageWrapper<D>: From<C>,
+        Message: From<MessageWrapper<D>>,
     {
         let mut e = Err::default();
         e.message = Message::from(MessageWrapper::from(message)).into();
+        e.root_cause = Some(BasicType::from(Wrapper::<B>::from(err)));
         e
     }
 
-    /// new with error creates an error with a root cause
-    #[inline(always)]
-    pub fn new_with_error<A, B>(err: Err, message: A) -> Self
-    where
-        MessageWrapper<B>: From<A>,
-        Message: From<MessageWrapper<B>>,
-    {
-        let mut e = Err::new(message);
-        e.root_cause = Some(Box::new(err));
-        e
-    }
-
-    /// appends a note to an error.
-    #[inline(always)]
+    /// appends kv data to an existing error
     pub fn note<A, B>(self, key: &'static str, value: A) -> Self
     where
         Wrapper<B>: From<A>,
@@ -138,22 +104,8 @@ impl Err {
         ::serde_json::to_string_pretty(self)
     }
 
-    #[inline(never)]
-    fn new_with_skip(skip: usize) -> Err {
-        let skip = if skip < 2 { 2 } else { skip };
-        let root_cause = None;
-        let key_value = KeyValue::default();
-        let backtrace = build_backtrace(skip, 1000);
-        Err {
-            message: String::with_capacity(0),
-            backtrace,
-            root_cause,
-            key_value,
-        }
-    }
-
     fn count_fields(&self) -> usize {
-        let mut fields = 2usize;
+        let mut fields = 1usize;
         if self.key_value.len() > 0 {
             fields += 1;
         }
