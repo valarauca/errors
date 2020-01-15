@@ -7,6 +7,42 @@ use std::ops::Deref;
 /// It works much like the `Wrapper<T>` along with `BasicType`
 /// to ensure better wild card generic stability.
 pub struct MessageWrapper<T>(pub T);
+impl From<&str> for MessageWrapper<Box<str>> {
+    #[inline(always)]
+    fn from(arg: &str) -> Self {
+        MessageWrapper(String::from(arg).into_boxed_str())
+    }
+}
+impl From<&Cow<'_, str>> for MessageWrapper<Box<str>> {
+    #[inline(always)]
+    fn from(arg: &Cow<'_, str>) -> Self {
+        MessageWrapper(String::from(arg.as_ref()).into_boxed_str())
+    }
+}
+impl From<&String> for MessageWrapper<Box<str>> {
+    #[inline(always)]
+    fn from(arg: &String) -> Self {
+        MessageWrapper(arg.clone().into_boxed_str())
+    }
+}
+impl From<&&str> for MessageWrapper<Box<str>> {
+    #[inline(always)]
+    fn from(arg: &&str) -> Self {
+        MessageWrapper(String::from(*arg).into_boxed_str())
+    }
+}
+impl From<&&Cow<'_, str>> for MessageWrapper<Box<str>> {
+    #[inline(always)]
+    fn from(arg: &&Cow<'_, str>) -> Self {
+        MessageWrapper(String::from(arg.as_ref()).into_boxed_str())
+    }
+}
+impl From<&&String> for MessageWrapper<Box<str>> {
+    #[inline(always)]
+    fn from(arg: &&String) -> Self {
+        MessageWrapper((*arg).clone().into_boxed_str())
+    }
+}
 
 macro_rules! implement {
     (@WAT $param: ident; $require: path; $name: ident; $block:block) => {
@@ -101,12 +137,16 @@ implement!(@LIFETIME 'a; &'a Box<str>);
 implement!(@LIFETIME 'a; &'a Cow<'a,str>);
 implement!(@LIFETIME 'a; Cow<'a,str>);
 implement!(@LIFETIME 'a; &'a String);
-implement!(@LIFETIME 'a; &'a str);
 implement!(@TY Box<str>);
 implement!(@TY String);
 
 /// Message type effectively doesn't exist, it just wraps around a string
 pub struct Message(String);
+impl From<Box<str>> for Message {
+    fn from(s: Box<str>) -> Message {
+        Message(String::from(s.as_ref()))
+    }
+}
 impl From<String> for Message {
     #[inline(always)]
     fn from(s: String) -> Message {
