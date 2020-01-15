@@ -13,6 +13,24 @@ impl From<&str> for MessageWrapper<Box<str>> {
         MessageWrapper(String::from(arg).into_boxed_str())
     }
 }
+impl From<String> for MessageWrapper<Box<str>> {
+    #[inline(always)]
+    fn from(arg: String) -> Self {
+        MessageWrapper(arg.into_boxed_str())
+    }
+}
+impl From<::std::fmt::Arguments<'_>> for MessageWrapper<Box<str>> {
+    #[inline(always)]
+    fn from(arg: ::std::fmt::Arguments<'_>) -> Self {
+        MessageWrapper(format!("{:?}", arg).into_boxed_str())
+    }
+}
+impl From<Box<str>> for MessageWrapper<Box<str>> {
+    #[inline(always)]
+    fn from(arg: Box<str>) -> Self {
+        MessageWrapper(arg)
+    }
+}
 impl From<&Cow<'_, str>> for MessageWrapper<Box<str>> {
     #[inline(always)]
     fn from(arg: &Cow<'_, str>) -> Self {
