@@ -11,10 +11,8 @@ use super::serde::{Serialize, Serializer};
 
 /// KeyValue is a specialized type to hold key-value data associated with
 /// an error.
-#[derive(Clone, Default)]
-pub struct KeyValue {
-    data: HashMap<&'static str, BasicType>,
-}
+#[derive(Clone, Default, Serialize)]
+pub struct KeyValue(HashMap<&'static str, BasicType>);
 impl KeyValue {
     /// populates a value to within the map of values. Keys must be unique, the program
     /// will panic if this is not respected.
@@ -30,35 +28,15 @@ impl KeyValue {
         Wrapper<B>: From<A>,
         BasicType: From<Wrapper<B>>,
     {
-        self.data
-            .insert(key, BasicType::from(Wrapper::<B>::from(arg)));
+        self.0.insert(key, BasicType::from(Wrapper::<B>::from(arg)));
     }
 
     pub fn len(&self) -> usize {
-        self.data.len()
+        self.0.len()
     }
 
     fn count_fields(&self) -> usize {
-        self.data.len()
-    }
-}
-impl Serialize for KeyValue {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut s = serializer.serialize_struct("ErrorInfo", self.count_fields())?;
-
-        // keys will be ordered
-        let mut v = self
-            .data
-            .iter()
-            .map(SortValue::from)
-            .collect::<Vec<SortValue<'_>>>();
-        v.sort();
-
-        // glob everything together
-        for item in v {
-            s.serialize_field(*item.key, item.value)?;
-        }
-        s.end()
+        self.0.len()
     }
 }
 impl fmt::Display for KeyValue {
@@ -70,7 +48,7 @@ impl fmt::Debug for KeyValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut info = f.debug_struct("ErrorInfo");
         let mut v = self
-            .data
+            .0
             .iter()
             .map(SortValue::from)
             .collect::<Vec<SortValue<'_>>>();

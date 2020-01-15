@@ -104,17 +104,6 @@
 <span id="104">104</span>
 <span id="105">105</span>
 <span id="106">106</span>
-<span id="107">107</span>
-<span id="108">108</span>
-<span id="109">109</span>
-<span id="110">110</span>
-<span id="111">111</span>
-<span id="112">112</span>
-<span id="113">113</span>
-<span id="114">114</span>
-<span id="115">115</span>
-<span id="116">116</span>
-<span id="117">117</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">serde</span>;
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">serde_json</span>;
@@ -136,13 +125,13 @@
 <span class="doccomment">/// your want, in a relatively sane fashion.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="prelude-val">Err</span> {
-    <span class="ident">message</span>: <span class="ident">String</span>,
+    <span class="ident">message</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">str</span><span class="op">&gt;</span>,
     <span class="ident">root_cause</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">BasicType</span><span class="op">&gt;</span>,
     <span class="ident">key_value</span>: <span class="ident">KeyValue</span>,
 }
 <span class="kw">impl</span> <span class="ident">Serialize</span> <span class="kw">for</span> <span class="prelude-val">Err</span> {
     <span class="kw">fn</span> <span class="ident">serialize</span><span class="op">&lt;</span><span class="ident">S</span>: <span class="ident">Serializer</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">serializer</span>: <span class="ident">S</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">S</span>::<span class="prelude-val">Ok</span>, <span class="ident">S</span>::<span class="ident">Error</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">s</span> <span class="op">=</span> <span class="ident">serializer</span>.<span class="ident">serialize_struct</span>(<span class="string">&quot;Error&quot;</span>, <span class="self">self</span>.<span class="ident">count_fields</span>())<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">s</span> <span class="op">=</span> <span class="ident">serializer</span>.<span class="ident">serialize_struct</span>(<span class="string">&quot;Error&quot;</span>, <span class="number">3</span>)<span class="question-mark">?</span>;
         <span class="ident">s</span>.<span class="ident">serialize_field</span>(<span class="string">&quot;message&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">message</span>)<span class="question-mark">?</span>;
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-ty">Option</span>::<span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">root_cause</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">root_cause</span> {
             <span class="ident">s</span>.<span class="ident">serialize_field</span>(<span class="string">&quot;existing_error&quot;</span>, <span class="ident">root_cause</span>)<span class="question-mark">?</span>;
@@ -180,7 +169,7 @@
     <span class="attribute">#[<span class="ident">inline</span>(<span class="ident">always</span>)]</span>
     <span class="kw">fn</span> <span class="ident">default</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-val">Err</span> {
         <span class="prelude-val">Err</span> {
-            <span class="ident">message</span>: <span class="ident">String</span>::<span class="ident">new</span>(),
+            <span class="ident">message</span>: <span class="ident">String</span>::<span class="ident">new</span>().<span class="ident">into_boxed_str</span>(),
             <span class="ident">root_cause</span>: <span class="prelude-val">None</span>,
             <span class="ident">key_value</span>: <span class="ident">KeyValue</span>::<span class="ident">default</span>(),
         }
@@ -196,7 +185,7 @@
         <span class="ident">Message</span>: <span class="ident">From</span><span class="op">&lt;</span><span class="ident">MessageWrapper</span><span class="op">&lt;</span><span class="ident">D</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">e</span> <span class="op">=</span> <span class="prelude-val">Err</span>::<span class="ident">default</span>();
-        <span class="ident">e</span>.<span class="ident">message</span> <span class="op">=</span> <span class="ident">Message</span>::<span class="ident">from</span>(<span class="ident">MessageWrapper</span>::<span class="ident">from</span>(<span class="ident">message</span>)).<span class="ident">into</span>();
+        <span class="ident">e</span>.<span class="ident">message</span> <span class="op">=</span> <span class="ident">Message</span>::<span class="ident">from</span>(<span class="ident">MessageWrapper</span>::<span class="ident">from</span>(<span class="ident">message</span>)).<span class="number">0</span>;
         <span class="ident">e</span>.<span class="ident">root_cause</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">BasicType</span>::<span class="ident">from</span>(<span class="ident">Wrapper</span>::<span class="op">&lt;</span><span class="ident">B</span><span class="op">&gt;</span>::<span class="ident">from</span>(<span class="ident">err</span>)));
         <span class="ident">e</span>
     }
@@ -220,17 +209,6 @@
     <span class="doccomment">/// serializes the data into a human readable JSON representation</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_json_pretty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> ::<span class="ident">serde_json</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> {
         ::<span class="ident">serde_json</span>::<span class="ident">to_string_pretty</span>(<span class="self">self</span>)
-    }
-
-    <span class="kw">fn</span> <span class="ident">count_fields</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">fields</span> <span class="op">=</span> <span class="number">1usize</span>;
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">key_value</span>.<span class="ident">len</span>() <span class="op">&gt;</span> <span class="number">0</span> {
-            <span class="ident">fields</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
-        }
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">root_cause</span>.<span class="ident">is_some</span>() {
-            <span class="ident">fields</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
-        }
-        <span class="ident">fields</span>
     }
 }
 </pre></div>

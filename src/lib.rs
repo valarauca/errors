@@ -18,13 +18,13 @@ pub use self::debugdisplay::{Message, MessageWrapper};
 /// your want, in a relatively sane fashion.
 #[derive(Clone)]
 pub struct Err {
-    message: String,
+    message: Box<str>,
     root_cause: Option<BasicType>,
     key_value: KeyValue,
 }
 impl Serialize for Err {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut s = serializer.serialize_struct("Error", self.count_fields())?;
+        let mut s = serializer.serialize_struct("Error", 3)?;
         s.serialize_field("message", &self.message)?;
         if let Option::Some(ref root_cause) = &self.root_cause {
             s.serialize_field("existing_error", root_cause)?;
@@ -62,7 +62,7 @@ impl Default for Err {
     #[inline(always)]
     fn default() -> Err {
         Err {
-            message: String::new(),
+            message: String::new().into_boxed_str(),
             root_cause: None,
             key_value: KeyValue::default(),
         }
@@ -78,7 +78,7 @@ impl Err {
         Message: From<MessageWrapper<D>>,
     {
         let mut e = Err::default();
-        e.message = Message::from(MessageWrapper::from(message)).into();
+        e.message = Message::from(MessageWrapper::from(message)).0;
         e.root_cause = Some(BasicType::from(Wrapper::<B>::from(err)));
         e
     }
@@ -102,16 +102,5 @@ impl Err {
     /// serializes the data into a human readable JSON representation
     pub fn to_json_pretty(&self) -> ::serde_json::Result<String> {
         ::serde_json::to_string_pretty(self)
-    }
-
-    fn count_fields(&self) -> usize {
-        let mut fields = 1usize;
-        if self.key_value.len() > 0 {
-            fields += 1;
-        }
-        if self.root_cause.is_some() {
-            fields += 1;
-        }
-        fields
     }
 }
