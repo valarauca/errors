@@ -26,12 +26,8 @@ impl Serialize for Err {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let mut s = serializer.serialize_struct("Error", 3)?;
         s.serialize_field("message", &self.message)?;
-        if let Option::Some(ref root_cause) = &self.root_cause {
-            s.serialize_field("existing_error", root_cause)?;
-        }
-        if self.key_value.len() > 0 {
-            s.serialize_field("info", &self.key_value)?;
-        }
+        s.serialize_field("existing_error", &self.root_cause)?;
+        s.serialize_field("info", &self.key_value)?;
         s.end()
     }
 }
@@ -83,14 +79,13 @@ impl Err {
     }
 
     /// appends kv data to an existing error
-    pub fn note<A, B>(self, key: &'static str, value: A) -> Self
+    pub fn note<A, B>(&mut self, key: &'static str, value: A) -> &mut Self
     where
         Wrapper<B>: From<A>,
         BasicType: From<Wrapper<B>>,
     {
-        let mut s = self;
-        s.key_value.insert(key, value);
-        s
+        self.key_value.insert(key, value);
+        self
     }
 
     /// serializes the data into a compact JSON representation
