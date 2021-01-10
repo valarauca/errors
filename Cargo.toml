@@ -1,6 +1,6 @@
 [package]
 name = "errors"
-version = "3.0.5"
+version = "3.1.0"
 authors = ["cody laeder <codylaeder@gmail.com>"]
 license = "MIT/Apache2"
 description = "non-error handling"

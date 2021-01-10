@@ -79,13 +79,14 @@ impl Err {
     }
 
     /// appends kv data to an existing error
-    pub fn note<A, B>(&mut self, key: &'static str, value: A) -> &mut Self
+    pub fn note<A, B>(self, key: &'static str, value: A) -> Self
     where
         Wrapper<B>: From<A>,
         BasicType: From<Wrapper<B>>,
     {
-        self.key_value.insert(key, value);
-        self
+        let mut s = self;
+        s.key_value.insert(key, value);
+        s
     }
 
     /// serializes the data into a compact JSON representation
