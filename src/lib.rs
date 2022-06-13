@@ -90,10 +90,10 @@ macro_rules! try_err {
         match $expression {
             Ok(x) => x,
             Err(e) => {
-                Err($err
+                return Err($err
                     .note("position", format!("{}:{}:{}", file!, line!(), column!()))
                     .note("module", module_path!())
-                    .err(e, $message))
+                    .err(e, $message));
             }
         }
     };
@@ -101,10 +101,10 @@ macro_rules! try_err {
         match $expression {
             Ok(x) => x,
             Err(e) => {
-                Err(self::Err::default()
+                return Err(self::Err::default()
                     .note("position", format!("{}:{}:{}", file!, line!(), column!()))
                     .note("module", module_path!())
-                    .err(e, $message))
+                    .err(e, $message));
             }
         }
     };
