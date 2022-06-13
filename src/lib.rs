@@ -84,6 +84,7 @@ impl Default for Err {
     }
 }
 
+#[macro_export]
 macro_rules! try_err {
     ($expression: expr => $message: expr => $err: expr) => {
         match $expression {
