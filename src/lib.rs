@@ -91,7 +91,7 @@ macro_rules! try_err {
             Ok(x) => x,
             Err(e) => {
                 return Err($err
-                    .note("position", format!("{}:{}:{}", file!, line!(), column!()))
+                    .note("position", format!("{}:{}:{}", file!(), line!(), column!()))
                     .note("module", module_path!())
                     .err(e, $message));
             }
@@ -102,7 +102,7 @@ macro_rules! try_err {
             Ok(x) => x,
             Err(e) => {
                 return Err(self::Err::default()
-                    .note("position", format!("{}:{}:{}", file!, line!(), column!()))
+                    .note("position", format!("{}:{}:{}", file!(), line!(), column!()))
                     .note("module", module_path!())
                     .err(e, $message));
             }
