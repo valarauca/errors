@@ -8,7 +8,7 @@ use std::fmt;
 
 mod kv;
 use self::kv::KeyValue;
-pub use self::kv::{BasicType, Wrapper};
+pub use self::kv::{BasicType};
 mod debugdisplay;
 pub use self::debugdisplay::{Message, MessageWrapper};
 
@@ -26,13 +26,8 @@ unsafe impl Sync for Err { }
 
 struct ErrorInner {
     message: Box<str>,
-    root_cause: Option<BasicType>,
+    root_cause: Option<Box<dyn std::error::Error>>,
     key_value: KeyValue,
-}
-impl ErrorInner {
-    fn msg<'a>(&'a self) -> &'a str {
-        self.message.as_ref()
-    }
 }
 
 
@@ -41,7 +36,12 @@ impl Serialize for Err {
         let mut s = serializer.serialize_struct("Error", 3)?;
         let elf = self.inner.as_ref().lock().unwrap();
         s.serialize_field("message", &elf.message)?;
-        s.serialize_field("existing_error", &elf.root_cause)?;
+        match &elf.root_cause {
+            Option::None => { },
+            Option::Some(ref inner) => {
+                s.serialize_field("existing_error", &format!("{:?}", inner))?;
+            }
+        }
         s.serialize_field("info", &elf.key_value)?;
         s.end()
     }
@@ -113,25 +113,23 @@ macro_rules! try_err {
 impl Err {
 
     /// error can work with most error/message formats
-    pub fn err<A, B>(&self, err: A, message: &'static str) -> Self
+    pub fn err<E>(&self, err: E, message: &'static str) -> Self
     where
-        Wrapper<B>: From<A>,
-        BasicType: From<Wrapper<B>>,
+        E: std::error::Error + 'static,
     {
-        let item = self.clone();
+        let item: Err = <Err as Clone>::clone(self);
         {
             let mut e = item.inner.as_ref().lock().unwrap();
             e.message = Message::from(MessageWrapper::from(message)).0;
-            e.root_cause = Some(BasicType::from(Wrapper::<B>::from(err)));
+            e.root_cause = Some(Box::new(err));
         }
         item
     }
 
     /// appends kv data to an existing error
-    pub fn note<A, B>(&self, key: &'static str, value: A) -> Self
+    pub fn note<A>(&self, key: &'static str, value: A) -> Self
     where
-        Wrapper<B>: From<A>,
-        BasicType: From<Wrapper<B>>,
+        BasicType: From<A>,
     {
         let item = self.clone();
         {

@@ -23,12 +23,11 @@ impl KeyValue {
     /// Therefore it being inlined, and its debug information being dropped it best
     /// for everyone.
     #[inline(always)]
-    pub fn insert<A, B>(&mut self, key: &'static str, arg: A)
+    pub fn insert<A>(&mut self, key: &'static str, arg: A)
     where
-        Wrapper<B>: From<A>,
-        BasicType: From<Wrapper<B>>,
+        BasicType: From<A>,
     {
-        self.0.insert(key, BasicType::from(Wrapper::<B>::from(arg)));
+        self.0.insert(key, BasicType::from(arg));
     }
 
     pub fn len(&self) -> usize {
@@ -91,99 +90,32 @@ impl<'a> Ord for SortValue<'a> {
         self.key.cmp(other.key)
     }
 }
-
-/// Wrapper is a very strange type which exists for specialization hacks.
-///
-/// Wrapper has a generic parameter `T` which means we can implement things
-/// for `Wrapper<T>`, or if we're fun, `Wrapper<f32>` (for example).
-///
-/// It means our implementations can be specialized for each input type.
-/// yet, we can still expose interfaces which bind to `From<T>`.
-pub struct Wrapper<T>(pub T);
-impl<'a, D: fmt::Debug + Clone + 'static> From<&'a D>
-    for Wrapper<(&'static str, Arc<dyn fmt::Debug>)>
-{
-    #[inline(always)]
-    fn from(arg: &'a D) -> Self {
-        Wrapper((::std::any::type_name::<D>(), Arc::new(arg.clone())))
-    }
-}
-impl From<fmt::Arguments<'_>> for Wrapper<Arc<str>> {
-    #[inline(always)]
-    fn from(arg: fmt::Arguments<'_>) -> Self {
-        Wrapper::from(format!("{:?}", arg))
-    }
-}
-impl From<Wrapper<(&'static str, Arc<dyn fmt::Debug>)>> for BasicType {
-    #[inline(always)]
-    fn from(arg: Wrapper<(&'static str, Arc<dyn fmt::Debug>)>) -> Self {
-        Self::Debug((arg.0).0, (arg.0).1)
-    }
-}
-impl From<String> for Wrapper<Arc<str>> {
-    #[inline(always)]
-    fn from(arg: String) -> Self {
-        Wrapper(Arc::from(arg.into_boxed_str()))
-    }
-}
-impl From<Wrapper<Arc<str>>> for BasicType {
-    #[inline(always)]
-    fn from(arg: Wrapper<Arc<str>>) -> BasicType {
-        BasicType::String(arg.0)
-    }
-}
 macro_rules! from_primative_to_basic {
     (@WRAPPER $from_name: ident; $container: path; $variant: ident) => {
-        impl From<$from_name> for Wrapper<$from_name> {
+        impl From<$from_name> for BasicType {
             #[inline(always)]
             fn from(arg: $from_name) -> Self {
-                Self(arg)
+                Self::$variant($container(arg))
             }
         }
-        impl<'a> From<&'a $from_name> for Wrapper<$from_name> {
+        impl<'a> From<&'a $from_name> for BasicType {
             #[inline(always)]
             fn from(arg: &$from_name) -> Self {
-                Self(arg.clone())
-            }
-        }
-        impl From<Wrapper<$from_name>> for BasicType {
-            #[inline(always)]
-            fn from(arg: Wrapper<$from_name>) -> Self {
-                Self::$variant($container(arg.0))
-            }
-        }
-    };
-    (@NOCLONE $from_name: ty; $variant: ident) => {
-        impl From<$from_name> for Wrapper<$from_name> {
-            #[inline(always)]
-            fn from(arg: $from_name) -> Self {
-                Self(arg)
-            }
-        }
-        impl From<Wrapper<$from_name>> for BasicType {
-            #[inline(always)]
-            fn from(arg: Wrapper<$from_name>) -> Self {
-                Self::$variant(Arc::new(arg.0))
+                Self::$variant($container(arg.clone()))
             }
         }
     };
     ($from_name: ty; $variant: ident) => {
-        impl From<$from_name> for Wrapper<$from_name> {
+        impl From<$from_name> for BasicType {
             #[inline(always)]
             fn from(arg: $from_name) -> Self {
-                Self(arg)
+                Self::$variant(arg)
             }
         }
-        impl<'a> From<&'a $from_name> for Wrapper<$from_name> {
+        impl<'a> From<&'a $from_name> for BasicType {
             #[inline(always)]
             fn from(arg: &$from_name) -> Self {
-                Self(arg.clone())
-            }
-        }
-        impl From<Wrapper<$from_name>> for BasicType {
-            #[inline(always)]
-            fn from(arg: Wrapper<$from_name>) -> Self {
-                Self::$variant(arg.0)
+                Self::$variant(arg.clone())
             }
         }
     };
@@ -213,8 +145,7 @@ pub enum BasicType {
     Dur(Duration),
     Inst(Instant),
     SysTime(SystemTime),
-    String(Arc<str>),
-    Debug(&'static str, Arc<dyn fmt::Debug>),
+    String(String),
     IOError(Arc<io::Error>),
 }
 impl fmt::Debug for BasicType {
@@ -247,7 +178,6 @@ impl fmt::Debug for BasicType {
                 item.duration_since(SystemTime::UNIX_EPOCH)
                     .unwrap_or_else(|_| Duration::new(0, 0))
             ),
-            Self::Debug(ref kind, ref debug) => write!(f, "{}='{:?}'", kind, debug),
             Self::IOError(ref err) => write!(f, "{:?}", err),
         }
     }
@@ -281,7 +211,6 @@ impl Serialize for BasicType {
                 item.duration_since(SystemTime::UNIX_EPOCH)
                     .unwrap_or_else(|_| Duration::new(0, 0))
             )),
-            Self::Debug(ref kind, ref debug) => s.serialize_str(&format!("{}='{:?}'", kind, debug)),
             Self::IOError(ref err) => s.collect_str(err),
         }
     }
@@ -304,25 +233,15 @@ from_primative_to_basic!(SocketAddr;Socket);
 from_primative_to_basic!(Duration;Dur);
 from_primative_to_basic!(Instant;Inst);
 from_primative_to_basic!(SystemTime;SysTime);
-from_primative_to_basic!(@NOCLONE io::Error;IOError);
+from_primative_to_basic!(String;String);
 from_primative_to_basic!(&'static str; StaticStr);
 from_primative_to_basic!(@WRAPPER Ipv4Addr; IpAddr::V4; IP);
 from_primative_to_basic!(@WRAPPER Ipv6Addr; IpAddr::V6; IP);
 from_primative_to_basic!(@WRAPPER SocketAddrV4; SocketAddr::V4; Socket);
 from_primative_to_basic!(@WRAPPER SocketAddrV6; SocketAddr::V6; Socket);
 
-#[test]
-fn test_type_type_aliasing() {
-    fn do_things<A, B>(arg: A) -> BasicType
-    where
-        Wrapper<B>: From<A>,
-        BasicType: From<Wrapper<B>>,
-    {
-        let wrapped: Wrapper<B> = <Wrapper<B> as From<A>>::from(arg);
-        <BasicType as From<Wrapper<B>>>::from(wrapped)
+impl From<std::io::Error> for BasicType {
+    fn from(arg: std::io::Error) -> Self {
+        Self::IOError(Arc::new(arg))
     }
-    match do_things(true) {
-        BasicType::Bool(true) => {}
-        anything => panic!("Expected a boolean, found:'{:?}'", anything),
-    };
 }
