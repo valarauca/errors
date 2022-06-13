@@ -64,6 +64,7 @@ impl From<&&String> for MessageWrapper<Box<str>> {
 
 /// Message type effectively doesn't exist, it just wraps around a string
 pub struct Message(pub Box<str>);
+unsafe impl Send for Message { }
 impl From<MessageWrapper<Box<str>>> for Message {
     fn from(s: MessageWrapper<Box<str>>) -> Message {
         Message(s.0)
