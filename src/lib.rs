@@ -21,6 +21,9 @@ pub struct Err {
     inner: std::sync::Arc<std::sync::Mutex<ErrorInner>>,
 }
 
+unsafe impl Send for Err { }
+unsafe impl Sync for Err { }
+
 struct ErrorInner {
     message: Box<str>,
     root_cause: Option<BasicType>,
